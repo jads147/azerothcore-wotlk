@@ -17298,6 +17298,40 @@ Unit* Unit::SelectNearbyNoTotemTarget(Unit* exclude, float dist) const
     return Acore::Containers::SelectRandomContainerElement(targets);
 }
 
+std::list<Unit*> Unit::SelectNearbyNoTotemTargets(Unit* exclude, float dist, uint32 maxTargets) const
+{
+    std::list<Unit*> targets;
+    Acore::AnyUnfriendlyNoTotemUnitInObjectRangeCheck u_check(this, this, dist);
+    Acore::UnitListSearcher<Acore::AnyUnfriendlyNoTotemUnitInObjectRangeCheck> searcher(this, targets, u_check);
+    Cell::VisitObjects(this, searcher, dist);
+
+    // remove current target
+    if (GetVictim())
+        targets.remove(GetVictim());
+
+    if (exclude)
+        targets.remove(exclude);
+
+    // remove not LoS targets
+    for (std::list<Unit*>::iterator tIter = targets.begin(); tIter != targets.end();)
+    {
+        if (!IsWithinLOSInMap(*tIter) || !IsValidAttackTarget(*tIter))
+        {
+            std::list<Unit*>::iterator tIter2 = tIter;
+            ++tIter;
+            targets.erase(tIter2);
+        }
+        else
+            ++tIter;
+    }
+
+    // limit to maxTargets (random selection)
+    if (targets.size() > maxTargets)
+        Acore::Containers::RandomResize(targets, maxTargets);
+
+    return targets;
+}
+
 void ApplyPercentModFloatVar(float& var, float val, bool apply)
 {
     var *= (apply ? (100.0f + val) / 100.0f : 100.0f / (100.0f + val));

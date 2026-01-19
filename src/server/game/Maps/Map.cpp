@@ -1761,7 +1761,7 @@ uint32 Map::ApplyDynamicModeRespawnScaling(WorldObject const* obj, uint32 respaw
     uint32 const playerCount = it->second;
     if (!playerCount)
         return respawnDelay;
-    double const adjustFactor =  rate / playerCount;
+    double const adjustFactor =  rate/playerCount/4;
     if (adjustFactor >= 1.0) // nothing to do here
         return respawnDelay;
     uint32 const timeMinimum = sWorld->getIntConfig(obj->IsGameObject() ? CONFIG_RESPAWN_DYNAMICMINIMUM_GAMEOBJECT : CONFIG_RESPAWN_DYNAMICMINIMUM_CREATURE);

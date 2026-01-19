@@ -16,6 +16,7 @@
  */
 
 #include "CreatureScript.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "SpellAuraEffects.h"
 #include "SpellInfo.h"
@@ -621,19 +622,11 @@ class spell_warr_sweeping_strikes : public AuraScript
         return ValidateSpellInfo({ SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2 });
     }
 
-    bool Load() override
-    {
-        _procTarget = nullptr;
-        return true;
-    }
-
     bool CheckProc(ProcEventInfo& eventInfo)
     {
         Unit* actor = eventInfo.GetActor();
         if (!actor)
-        {
             return false;
-        }
 
         if (SpellInfo const* spellInfo = eventInfo.GetSpellInfo())
         {
@@ -643,41 +636,56 @@ class spell_warr_sweeping_strikes : public AuraScript
                 case SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2:
                 case SPELL_WARRIOR_WHIRLWIND_OFF:
                     return false;
-                case SPELL_WARRIOR_WHIRLWIND_MAIN:
-                    if (actor->HasSpellCooldown(SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1))
-                    {
-                        return false;
-                    }
-                    break;
                 default:
                     break;
             }
         }
 
-        _procTarget = actor->SelectNearbyNoTotemTarget(eventInfo.GetProcTarget());
-        return _procTarget != nullptr;
+        return true;
     }
 
     void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
     {
         PreventDefaultAction();
-        if (DamageInfo* damageInfo = eventInfo.GetDamageInfo())
+
+        Unit* caster = eventInfo.GetActor();
+        if (!caster || !caster->IsInWorld())
+            return;
+
+        DamageInfo* damageInfo = eventInfo.GetDamageInfo();
+        if (!damageInfo)
+            return;
+
+        Unit* mainTarget = eventInfo.GetProcTarget();
+        if (!mainTarget)
+            return;
+
+        // Get number of extra targets from spell effect (BasePoints + 1)
+        uint32 maxTargets = 1;
+        if (aurEff)
+            maxTargets = std::max(1, aurEff->GetAmount() + 1);
+
+        std::list<Unit*> procTargets = caster->SelectNearbyNoTotemTargets(mainTarget, NOMINAL_MELEE_RANGE, maxTargets);
+        if (procTargets.empty())
+            return;
+
+        SpellInfo const* spellInfo = damageInfo->GetSpellInfo();
+        bool isExecute = spellInfo && spellInfo->Id == SPELL_WARRIOR_EXECUTE;
+        int32 damage = damageInfo->GetUnmitigatedDamage();
+
+        for (Unit* procTarget : procTargets)
         {
-            SpellInfo const* spellInfo = damageInfo->GetSpellInfo();
-            if (spellInfo && spellInfo->Id == SPELL_WARRIOR_EXECUTE && !_procTarget->HasAuraState(AURA_STATE_HEALTHLESS_20_PERCENT))
+            if (!procTarget || !procTarget->IsAlive())
+                continue;
+
+            if (isExecute && !procTarget->HasAuraState(AURA_STATE_HEALTHLESS_20_PERCENT))
             {
                 // If triggered by Execute (while target is not under 20% hp) deals normalized weapon damage
-                GetTarget()->CastSpell(_procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2, aurEff);
+                caster->CastSpell(procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2, aurEff);
             }
             else
             {
-                if (spellInfo && spellInfo->Id == SPELL_WARRIOR_WHIRLWIND_MAIN)
-                {
-                    eventInfo.GetActor()->AddSpellCooldown(SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, 0, 500);
-                }
-
-                int32 damage = damageInfo->GetUnmitigatedDamage();
-                GetTarget()->CastCustomSpell(_procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, &damage, 0, 0, true, nullptr, aurEff);
+                caster->CastCustomSpell(procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, &damage, 0, 0, true, nullptr, aurEff);
             }
         }
     }
@@ -687,9 +695,6 @@ class spell_warr_sweeping_strikes : public AuraScript
         DoCheckProc += AuraCheckProcFn(spell_warr_sweeping_strikes::CheckProc);
         OnEffectProc += AuraEffectProcFn(spell_warr_sweeping_strikes::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
     }
-
-private:
-    Unit* _procTarget = nullptr;
 };
 
 // 50720 - Vigilance

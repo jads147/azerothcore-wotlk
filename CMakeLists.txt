@@ -40,6 +40,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(AC_PATH_ROOT "${CMAKE_SOURCE_DIR}")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
 # set macro-directory
 list(APPEND CMAKE_MODULE_PATH
         "${CMAKE_SOURCE_DIR}/src/cmake/macros")

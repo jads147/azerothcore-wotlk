@@ -5696,6 +5696,46 @@ class spell_gen_whisper_to_controller : public SpellScript
     }
 };
 
+// 22417 - Shadow Shield
+// Absorbs damage and inflicts shadow damage to melee attackers
+// The damage reflection should work even when the shield fully absorbs the damage
+// Normally DealDamageShieldDamage only triggers when damage > 0 after absorb
+class spell_gen_shadow_shield_aura : public AuraScript
+{
+    PrepareAuraScript(spell_gen_shadow_shield_aura);
+
+    void HandleAfterAbsorb(AuraEffect* /*aurEff*/, DamageInfo& dmgInfo, uint32& absorbAmount)
+    {
+        // Only trigger on melee attacks
+        if (dmgInfo.GetDamageType() != DIRECT_DAMAGE)
+            return;
+
+        // Only handle the case where all damage was absorbed
+        // If damage remains, the normal DealDamageShieldDamage path will handle it
+        if (dmgInfo.GetDamage() > 0)
+            return;
+
+        // Don't reflect to self
+        Unit* attacker = dmgInfo.GetAttacker();
+        Unit* target = GetTarget();
+        if (!attacker || attacker == target)
+            return;
+
+        // Only reflect if we actually absorbed something (melee hit happened)
+        if (absorbAmount == 0)
+            return;
+
+        // Trigger the damage shield effect manually since the normal path won't be called
+        // DealDamageShieldDamage is called as: attacker->DealDamageShieldDamage(shieldBearer)
+        attacker->DealDamageShieldDamage(target);
+    }
+
+    void Register() override
+    {
+        AfterEffectAbsorb += AuraEffectAbsorbFn(spell_gen_shadow_shield_aura::HandleAfterAbsorb, EFFECT_0);
+    }
+};
+
 void AddSC_generic_spell_scripts()
 {
     RegisterSpellScript(spell_silithyst);
@@ -5871,4 +5911,5 @@ void AddSC_generic_spell_scripts()
     RegisterSpellScript(spell_gen_bm_on);
     RegisterSpellScript(spell_gen_bm_off);
     RegisterSpellScript(spell_gen_whisper_to_controller);
+    RegisterSpellScript(spell_gen_shadow_shield_aura);
 }
