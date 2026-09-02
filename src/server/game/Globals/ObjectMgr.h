@@ -1141,6 +1141,12 @@ public:
         return GetGuidSequenceGenerator<type>();
     }
 
+    // Reserved floor for custom (non-upstream) creature/gameobject spawns, e.g. added via
+    // .npc add / .gobject add. Keeps custom content out of the guid range upstream ships
+    // new spawns in, so future AzerothCore updates can't collide with it. Must stay well
+    // below the 0xFFFFFF hard cap in GenerateCreatureSpawnId/GenerateGameObjectSpawnId.
+    static constexpr ObjectGuid::LowType CUSTOM_SPAWN_ID_FLOOR = 12000000;
+
     uint32 GenerateAuctionID();
     uint64 GenerateEquipmentSetGuid();
     uint32 GenerateMailID();

@@ -6235,6 +6235,45 @@ class spell_gen_shadow_shield_aura : public AuraScript
     }
 };
 
+// Generic Lifesteal stat aura
+// Heals the caster for a percentage of any damage they deal that matches this
+// aura's spell school(s). The heal percentage comes from the effect's
+// EffectBasePoints/EffectDieSides, and the affected school(s) come from the
+// spell's own SchoolMask - both configured per spell in the DBC, so the same
+// script serves e.g. "Lifesteal (Physical)" and "Lifesteal (Arcane)" alike.
+class spell_gen_lifesteal : public AuraScript
+{
+    PrepareAuraScript(spell_gen_lifesteal);
+
+    bool CheckProc(ProcEventInfo& eventInfo)
+    {
+        DamageInfo const* dmgInfo = eventInfo.GetDamageInfo();
+        if (!dmgInfo || !dmgInfo->GetDamage())
+            return false;
+
+        return (dmgInfo->GetSchoolMask() & GetSpellInfo()->GetSchoolMask()) != 0;
+    }
+
+    void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+    {
+        PreventDefaultAction();
+
+        Unit* caster = eventInfo.GetActor();
+        uint32 heal = CalculatePct(eventInfo.GetDamageInfo()->GetDamage(), aurEff->GetAmount());
+        if (!heal)
+            return;
+
+        HealInfo healInfo(caster, caster, heal, GetSpellInfo(), GetSpellInfo()->GetSchoolMask());
+        caster->HealBySpell(healInfo);
+    }
+
+    void Register() override
+    {
+        DoCheckProc += AuraCheckProcFn(spell_gen_lifesteal::CheckProc);
+        OnEffectProc += AuraEffectProcFn(spell_gen_lifesteal::HandleProc, EFFECT_0, SPELL_AURA_PROC_TRIGGER_SPELL);
+    }
+};
+
 void AddSC_generic_spell_scripts()
 {
     RegisterSpellScript(spell_silithyst);
@@ -6244,6 +6283,7 @@ void AddSC_generic_spell_scripts()
     RegisterSpellScript(spell_the_flag_of_ownership);
     RegisterSpellScript(spell_gen_have_item_auras);
     RegisterSpellScript(spell_gen_mine_sweeper);
+    RegisterSpellScript(spell_gen_lifesteal);
     RegisterSpellAndAuraScriptPair(spell_gen_reduced_above_60, spell_gen_reduced_above_60_aura);
     RegisterSpellScriptWithArgs(spell_gen_relocaste_dest, "spell_q10838_demoniac_scryer_visual", 0, 0, 20.0, 0);
     RegisterSpellScriptWithArgs(spell_gen_relocaste_dest, "spell_q20438_q24556_aquantos_laundry", 0, 0, 7.0f, 0);

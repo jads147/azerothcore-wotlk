@@ -52,6 +52,7 @@
 #include "Util.h"
 #include "Vehicle.h"
 #include "World.h"
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <numeric>
 
@@ -7615,11 +7616,11 @@ void ObjectMgr::SetHighestGuids()
 
     result = WorldDatabase.Query("SELECT MAX(guid) FROM creature");
     if (result)
-        _creatureSpawnId = (*result)[0].Get<uint32>() + 1;
+        _creatureSpawnId = std::max((*result)[0].Get<uint32>() + 1, CUSTOM_SPAWN_ID_FLOOR);
 
     result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject");
     if (result)
-        _gameObjectSpawnId = (*result)[0].Get<uint32>() + 1;
+        _gameObjectSpawnId = std::max((*result)[0].Get<uint32>() + 1, CUSTOM_SPAWN_ID_FLOOR);
 }
 
 uint32 ObjectMgr::GenerateAuctionID()
